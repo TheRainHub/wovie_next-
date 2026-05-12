@@ -1,7 +1,10 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { motion, Variants } from 'framer-motion'
 import { Play, Download, Plus, Share2, Heart, Star } from 'lucide-react'
 import { useAccentColor } from '../hooks/useAccentColor'
+import WatchlistDropdown from '@/app/components/WatchlistDropdown'
+import FavoriteButton from '@/app/components/FavoriteButton'
 
 interface Props {
   film: any;
@@ -65,6 +68,20 @@ export default function PosterInfo({ film }: Props) {
   const logo = film.images?.logos?.[0]?.file_path;
   const posterUrl = film.poster_path ? `https://image.tmdb.org/t/p/w500${film.poster_path}` : undefined;
   const accent = useAccentColor(posterUrl);
+  
+  const [userState, setUserState] = useState<{ isFavorite: boolean, watchlists: any[] }>({ isFavorite: false, watchlists: [] })
+  const [isWatchlistOpen, setIsWatchlistOpen] = useState(false)
+
+  useEffect(() => {
+    if (film?.id) {
+      fetch(`/api/movies/${film.id}/state`)
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) setUserState(data)
+        })
+        .catch(console.error)
+    }
+  }, [film?.id])
   
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -184,7 +201,7 @@ export default function PosterInfo({ film }: Props) {
           </motion.div>
 
           {/* Кнопки */}
-          <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-4">
+          <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-4 relative">
             <button className="flex items-center gap-2 text-white px-8 py-3.5 rounded-xl font-bold transition-all duration-300"
                     style={{ backgroundColor: accent.hex, color: accent.isDark ? '#fff' : '#000', boxShadow: `0 8px 32px ${accent.rgba(0.4)}` }}>
               <Play className="w-5 h-5" style={{ fill: accent.isDark ? '#fff' : '#000' }} />
@@ -194,16 +211,29 @@ export default function PosterInfo({ film }: Props) {
               <Download className="w-5 h-5" />
               Download
             </button>
-            <button className="flex items-center gap-2 bg-white/10 hover:bg-white/20 transition-colors border border-white/10 text-white px-6 py-3.5 rounded-xl font-medium backdrop-blur-sm">
-              <Plus className="w-5 h-5" />
-              Add to List
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setIsWatchlistOpen(!isWatchlistOpen)}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 transition-colors border border-white/10 text-white px-6 py-3.5 rounded-xl font-medium backdrop-blur-sm"
+              >
+                <Plus className="w-5 h-5" />
+                Add to List
+              </button>
+              <WatchlistDropdown 
+                movieId={film.id}
+                watchlists={userState.watchlists}
+                isOpen={isWatchlistOpen}
+                onClose={() => setIsWatchlistOpen(false)}
+              />
+            </div>
             <button className="p-3.5 bg-white/10 hover:bg-white/20 transition-colors border border-white/10 text-white rounded-xl backdrop-blur-sm">
               <Share2 className="w-5 h-5" />
             </button>
-            <button className="p-3.5 bg-white/10 hover:bg-white/20 transition-colors border border-white/10 text-white rounded-xl backdrop-blur-sm">
-              <Heart className="w-5 h-5" />
-            </button>
+            <FavoriteButton 
+              movieId={film.id} 
+              initialIsFavorite={userState.isFavorite}
+              className="p-3.5 bg-white/10 hover:bg-white/20 transition-colors border border-white/10 text-white rounded-xl backdrop-blur-sm"
+            />
           </motion.div>
         </motion.div>
       </div>

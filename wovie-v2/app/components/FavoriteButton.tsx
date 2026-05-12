@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -12,6 +12,10 @@ interface Props {
 export default function FavoriteButton({ movieId, initialIsFavorite, className = "" }: Props) {
   const [isFavorite, setIsFavorite] = useState(initialIsFavorite)
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    setIsFavorite(initialIsFavorite)
+  }, [initialIsFavorite])
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault() // prevent navigating to movie page if wrapped in Link
@@ -51,7 +55,7 @@ export default function FavoriteButton({ movieId, initialIsFavorite, className =
     <button
       onClick={toggleFavorite}
       disabled={isLoading}
-      className={`p-2 rounded-full backdrop-blur-sm bg-black/30 hover:bg-black/50 transition-colors ${className}`}
+      className={className || "p-2 rounded-full backdrop-blur-sm bg-black/30 hover:bg-black/50 transition-colors"}
       title={isFavorite ? "Remove from favorites" : "Add to favorites"}
     >
       <motion.div
