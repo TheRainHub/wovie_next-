@@ -31,12 +31,6 @@ export default function HoverOverlay({ isHovered }: Props) {
           >
             <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
           </motion.button>
-
-          {/* Heart top-right */}
-          <button className="absolute top-3 right-3 z-10 p-2 rounded-full
-                             bg-black/30 backdrop-blur-sm hover:bg-black/50 transition-colors">
-            <Heart className="w-4 h-4 text-white" />
-          </button>
         </motion.div>
       )}
     </AnimatePresence>

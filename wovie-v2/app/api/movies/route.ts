@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/db";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/auth";
 
 export async function GET(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
@@ -23,18 +28,27 @@ export async function GET(request: Request) {
       sort === "title" ? { title: "asc" } :
       { rating: "desc" };
 
-    const [movies, total] = await Promise.all([
+    const [moviesData, total] = await Promise.all([
       prisma.movie.findMany({
         where: whereClause,
         skip,
         take: limit,
         orderBy,
         include: {
-          genres: { include: { genre: true } }
+          genres: { include: { genre: true } },
+          ...(userId ? { favorites: { where: { userId } } } : {})
         }
       }),
       prisma.movie.count({ where: whereClause })
     ]);
+
+    const movies = moviesData.map((m: any) => {
+      const { favorites, ...rest } = m;
+      return {
+        ...rest,
+        isFavorite: favorites ? favorites.length > 0 : false
+      };
+    });
 
     return NextResponse.json({
       movies,

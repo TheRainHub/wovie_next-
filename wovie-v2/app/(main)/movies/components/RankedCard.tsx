@@ -7,10 +7,13 @@ import Image from 'next/image'
 import HoverOverlay from './HoverOverlay'
 import ProgressBar from './ProgressBar'
 
+import FavoriteButton from '@/app/components/FavoriteButton'
+
 interface Movie {
   id: number; title: string; posterUrl: string | null;
   releaseDate: Date | null; rating: number;
   genres: { genre: { name: string } }[]
+  isFavorite?: boolean
 }
 
 interface Props {
@@ -48,20 +51,23 @@ export default function RankedCard({ movie, rank, progress, isNew }: Props) {
         {/* Bottom gradient — all info lives here */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
 
-        {/* Rating badge — top right, always visible */}
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1
-                        rounded-md bg-black/50 backdrop-blur-sm text-[10px] font-bold text-white/90">
-          <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-          {movie.rating.toFixed(1)}
-        </div>
-
-        {/* NEW badge — top left */}
-        {isNew && (
-          <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[9px] font-bold
-                          bg-accent text-white uppercase tracking-wider">
-            New
+        {/* Top items (Favorite + Badges) */}
+        <div className="absolute top-2 left-2 right-2 z-30 flex items-start justify-between pointer-events-none">
+          <div className="flex flex-col gap-2 items-start pointer-events-auto">
+            {isNew && (
+              <div className="px-2 py-0.5 rounded text-[9px] font-bold bg-accent text-white uppercase tracking-wider shadow-md">
+                New
+              </div>
+            )}
+            <FavoriteButton movieId={movie.id} initialIsFavorite={!!movie.isFavorite} />
           </div>
-        )}
+          
+          {/* Rating badge — top right, always visible */}
+          <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-black/50 backdrop-blur-sm text-[10px] font-bold text-white/90 shadow-md">
+            <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+            {movie.rating.toFixed(1)}
+          </div>
+        </div>
 
         {/* Info block — bottom, inside the card */}
         <div className="absolute bottom-0 left-0 right-0 z-10 p-3">
