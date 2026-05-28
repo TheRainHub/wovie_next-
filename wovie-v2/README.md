@@ -1,6 +1,6 @@
 # Wovie 🎬
 
-> **Semestrální práce — Webové technologie (WT)**
+> **Semestrální práce — Tvorba klientských aplikací v JavaScriptu (KAJ)**
 > Autor: Mykhailo Plokhin | [GitHub původní verze (ZWA, 1. ročník)](https://github.com/TheRainHub/Wovie) Původní verze tohoto github repo pro historie commitu https://github.com/TheRainHub/wovie_next
 >
 > 🔗 **Původní Wovie (ZWA, čisté HTML/CSS/JS):** [zwa.toad.cz/~plokhmyk/Wovie/index.php](https://zwa.toad.cz/~plokhmyk/Wovie/index.php)
