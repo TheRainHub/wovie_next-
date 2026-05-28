@@ -28,7 +28,7 @@ export default function HeroBanner({ movie, isLastVisited }: Props) {
   const runtime = movie.runtime ? `${hours}h ${mins}min` : ''
 
   return (
-    <div className="relative w-[calc(100%+2rem)] -mx-4 -mt-16 mb-10">
+    <article className="relative w-[calc(100%+2rem)] -mx-4 -mt-16 mb-10" aria-label={`Featured: ${movie.title}`}>
       {/* Backdrop image */}
       <div className="relative w-full h-[70vh] min-h-[500px] max-h-[700px] overflow-hidden">
         {movie.backdropUrl ? (
@@ -146,6 +146,6 @@ export default function HeroBanner({ movie, isLastVisited }: Props) {
           </motion.div>
         </div>
       </div>
-    </div>
+    </article>
   )
 }

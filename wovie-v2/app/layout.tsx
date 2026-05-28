@@ -23,6 +23,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${poppins.variable} ${patuaOne.variable}`}>
+      <head>
+        {/* Web Component: кастомный элемент рейтинга <wovie-rating> */}
+        <script src="/components/wovie-rating.js" defer></script>
+      </head>
       <body className="font-sans bg-background text-white">
         <Providers>{children}</Providers>
       </body>

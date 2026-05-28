@@ -18,6 +18,30 @@ export default function MoviesPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const observerRef = useRef<HTMLDivElement>(null)
 
+  // History API: читаем жанр из URL при первой загрузке
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const genre = params.get('genre')
+    if (genre) setActiveGenre(genre)
+  }, [])
+
+  // History API: слушаем кнопки назад/вперёд браузера
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const genre = e.state?.genre ?? null
+      setActiveGenre(genre)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  // History API: при смене жанра обновляем URL через pushState
+  const handleGenreChange = useCallback((genre: string | null) => {
+    setActiveGenre(genre)
+    const url = genre ? `?genre=${encodeURIComponent(genre)}` : window.location.pathname
+    window.history.pushState({ genre }, '', url)
+  }, [])
+
   // Load genres and initial trending
   useEffect(() => {
     fetch('/api/movies/genres').then(r => r.json()).then(d => setGenres(d.genres))
@@ -108,48 +132,53 @@ export default function MoviesPage() {
   const catalogMovies = movies.filter(m => !reservedIds.has(m.id))
 
   return (
-    <div className="min-h-screen bg-background text-white">
+    <main className="min-h-screen bg-background text-white">
       {/* Hero Banner — last visited movie */}
-      {hero && <HeroBanner movie={hero} isLastVisited={!!heroMovie} />}
+      {hero && (
+        <section aria-label="Featured movie">
+          <HeroBanner movie={hero} isLastVisited={!!heroMovie} />
+        </section>
+      )}
 
       {/* Content */}
       <div className="max-w-[1400px] mx-auto">
 
         {/* Trending rotating banner */}
         {trendingMovies.length > 0 && (
-          <div className="mb-8">
+          <section aria-label="Trending now" className="mb-8">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-4">
               🔥 Trending now
             </h2>
             <TrendingBanner movies={trendingMovies} />
-          </div>
+          </section>
         )}
 
         {/* Filters */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-white">All movies</h2>
-          <GenreFilters genres={genres} activeGenre={activeGenre} onGenreChange={setActiveGenre} />
+          <GenreFilters genres={genres} activeGenre={activeGenre} onGenreChange={handleGenreChange} />
         </div>
 
         {/* Movie grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+          <section aria-label="Loading movies" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
             {[...Array(20)].map((_, i) => (
               <div key={i} className="aspect-[2/3] rounded-xl bg-card/50 animate-pulse" />
             ))}
-          </div>
+          </section>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+            <section aria-label="Movie catalog" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
               {catalogMovies.map((m, i) => (
-                <RankedCard
-                  key={m.id}
-                  movie={m}
-                  rank={i + 1}
-                  isNew={m.releaseDate && new Date(m.releaseDate).getFullYear() >= 2026}
-                />
+                <article key={m.id}>
+                  <RankedCard
+                    movie={m}
+                    rank={i + 1}
+                    isNew={m.releaseDate && new Date(m.releaseDate).getFullYear() >= 2026}
+                  />
+                </article>
               ))}
-            </div>
+            </section>
 
             {/* Infinite scroll trigger */}
             {hasMore && (
@@ -171,6 +200,6 @@ export default function MoviesPage() {
           </>
         )}
       </div>
-    </div>
+    </main>
   )
 }

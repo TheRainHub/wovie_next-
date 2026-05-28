@@ -15,6 +15,8 @@ interface AuthInputProps {
   disabled?: boolean;
   minLength?: number;
   autoComplete?: string;
+  placeholder?: string;
+  autoFocus?: boolean;
   error?: string;
   /** Show green valid state when true */
   isValid?: boolean;
@@ -155,6 +157,8 @@ export default function AuthInput({
   disabled,
   minLength,
   autoComplete,
+  placeholder,
+  autoFocus,
   error,
   isValid,
 }: AuthInputProps) {
@@ -220,8 +224,10 @@ export default function AuthInput({
           disabled={disabled}
           minLength={minLength}
           autoComplete={autoComplete}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
           className="w-full bg-transparent text-white outline-none py-2.5 px-1 text-sm
-            placeholder:text-transparent disabled:opacity-40 disabled:cursor-not-allowed"
+            placeholder:text-white/30 disabled:opacity-40 disabled:cursor-not-allowed"
         />
 
         <div className={`flex items-center gap-1 pl-2 transition-colors duration-200 ${iconColor}`}>

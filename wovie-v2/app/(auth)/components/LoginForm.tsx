@@ -64,11 +64,11 @@ export default function LoginForm({ onSwitch, onClose }: { onSwitch: () => void;
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <motion.div variants={fadeUp}>
-            <AuthInput label="Email" icon={<Mail size={16} />} type="email" name="login-email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} autoComplete="email" isValid={emailValid} />
+            <AuthInput label="Email" icon={<Mail size={16} />} type="email" name="login-email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} autoComplete="email" placeholder="your@email.com" autoFocus isValid={emailValid} />
           </motion.div>
 
           <motion.div variants={fadeUp}>
-            <AuthInput label="Password" icon={<Lock size={16} />} type="password" name="login-password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} minLength={8} autoComplete="current-password" isValid={passwordValid} />
+            <AuthInput label="Password" icon={<Lock size={16} />} type="password" name="login-password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} minLength={8} autoComplete="current-password" placeholder="Minimum 8 characters" isValid={passwordValid} />
           </motion.div>
 
           <motion.div variants={fadeUp} className="flex items-center justify-between text-sm">

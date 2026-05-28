@@ -5,6 +5,8 @@ import { Play, Download, Plus, Share2, Heart, Star } from 'lucide-react'
 import { useAccentColor } from '../hooks/useAccentColor'
 import WatchlistDropdown from '@/app/components/WatchlistDropdown'
 import FavoriteButton from '@/app/components/FavoriteButton'
+import Wovie from '@/app/lib/MovieModel'
+import RatingChart from './RatingChart'
 
 interface Props {
   film: any;
@@ -62,7 +64,9 @@ const formatVotes = (votes: number) => {
 }
 
 export default function PosterInfo({ film }: Props) {
-  const year = film.release_date ? film.release_date.split('-')[0] : '';
+  // OOP-модель: прототипное наследование MediaItem → Movie
+  const movieModel = Wovie.createMovie(film)
+  const year = movieModel.getYear();
   const countries = film.production_countries?.map((c: any) => c.name).join(', ') || '';
   const shortCountries = film.production_countries?.map((c: any) => c.iso_3166_1).join(' / ') || '';
   const logo = film.images?.logos?.[0]?.file_path;
@@ -145,26 +149,26 @@ export default function PosterInfo({ film }: Props) {
           </motion.div>
 
           {/* Рейтинги */}
-          <motion.div variants={itemVariants} className="flex items-center gap-6 mb-6">
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className="w-5 h-5" style={{
-                    color: i <= Math.round(film.vote_average / 2) ? accent.hex : accent.rgba(0.25),
-                    fill: i <= Math.round(film.vote_average / 2) ? accent.hex : 'transparent'
-                  }} />
-                ))}
+          <motion.div variants={itemVariants} className="flex items-center gap-8 mb-6">
+            {/* SVG-компонент: круговой индикатор с JS setAttribute + addEventListener */}
+            <RatingChart
+              score={film.vote_average ?? 0}
+              votes={film.vote_count ?? 0}
+              accent={accent.hex}
+            />
+
+            <div className="flex flex-col gap-3">
+              {/* Web Component <wovie-rating> */}
+              {/* @ts-ignore — кастомный HTML-элемент */}
+              <wovie-rating value={film.vote_average?.toFixed(1)} max="10" />
+
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ borderWidth: 2, borderColor: accent.hex, color: accent.hex, backgroundColor: accent.rgba(0.1) }}>
+                  93%
+                </span>
+                <span className="text-white/60 text-sm font-medium">Rotten Tomatoes</span>
               </div>
-              <span className="font-bold text-xl ml-2 drop-shadow" style={{ color: accent.hex }}>{film.vote_average?.toFixed(1)}</span>
-              <span className="text-white/40 text-sm">{formatVotes(film.vote_count)}</span>
-            </div>
-            
-            <div className="flex items-center gap-2 border-l border-white/10 pl-6">
-              <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={{ borderWidth: 2, borderColor: accent.hex, color: accent.hex, backgroundColor: accent.rgba(0.1) }}>
-                93%
-              </span>
-              <span className="text-white/60 text-sm font-medium">Rotten Tomatoes</span>
             </div>
           </motion.div>
 

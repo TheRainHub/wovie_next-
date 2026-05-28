@@ -148,6 +148,8 @@ export default function RegisterForm({ onSwitch, onClose }: { onSwitch: () => vo
               required
               disabled={loading}
               autoComplete="username"
+              placeholder="Minimum 3 characters"
+              autoFocus
               isValid={usernameValid}
             />
           </motion.div>
@@ -163,6 +165,7 @@ export default function RegisterForm({ onSwitch, onClose }: { onSwitch: () => vo
               required
               disabled={loading}
               autoComplete="email"
+              placeholder="your@email.com"
               isValid={emailValid}
             />
           </motion.div>
