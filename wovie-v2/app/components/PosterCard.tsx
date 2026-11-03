@@ -20,11 +20,13 @@ interface Props {
   /** Show the favourite toggle (lists of your own films leave it out). */
   showFavorite?: boolean
   priority?: boolean
+  /** Shown instead of the year, e.g. the full release date. */
+  dateLabel?: string
 }
 
 // A film in a grid: poster, TMDB score, title, year and first genre.
-export default function PosterCard({ movie, showFavorite = true, priority = false }: Props) {
-  const year = yearOf(movie.releaseDate)
+export default function PosterCard({ movie, showFavorite = true, priority = false, dateLabel }: Props) {
+  const year = dateLabel ?? yearOf(movie.releaseDate)
   const genre = movie.genres[0]?.genre.name ?? ''
   const isNew = isRecentRelease(movie.releaseDate)
 

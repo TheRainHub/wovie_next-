@@ -31,7 +31,8 @@ export interface FilmInfo {
   revenue: number
   certification: { region: string; certification: string } | null
   hasTrailer: boolean
-  crew: { role: string; name: string | null; photoUrl: string | null }[]
+  /** Only roles TMDB has someone for. */
+  crew: { role: string; names: string[] }[]
 }
 
 interface FilmState {
@@ -52,34 +53,6 @@ const itemVariants: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
 }
 
-function CrewCard({ role, name, photoUrl }: FilmInfo['crew'][number]) {
-  return (
-    <div className="flex items-center gap-3 bg-[#12151C] border border-white/5 rounded-xl px-4 py-3">
-      <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 flex-shrink-0 border border-white/10">
-        {photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- small TMDB profile photo
-          <img src={photoUrl} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-white/20 text-xs" aria-hidden>?</div>
-        )}
-      </div>
-      <div className="flex flex-col justify-center min-w-0">
-        <span className="text-white/40 text-[10px] tracking-wider uppercase mb-0.5">{role}</span>
-        <span className="text-white text-sm font-medium line-clamp-1">{name ?? '—'}</span>
-      </div>
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="flex flex-col items-center text-center">
-      <dt className="text-white/40 text-xs tracking-wider uppercase mb-1">{label}</dt>
-      <dd className="text-white font-semibold">{value || '—'}</dd>
-    </div>
-  )
-}
-
 export default function PosterInfo({ film }: { film: FilmInfo }) {
   const pathname = usePathname()
   const accent = useAccentColor(film.posterUrl ?? undefined)
@@ -89,8 +62,16 @@ export default function PosterInfo({ film }: { film: FilmInfo }) {
 
   const year = yearOf(film.releaseDate)
   const countryNames = film.countries.map(c => c.name).join(', ')
-  const countryCodes = film.countries.map(c => c.iso_3166_1).join(' / ')
   const runtime = formatRuntime(film.runtime)
+
+  // Crew first, then facts; anything TMDB doesn't know is left out.
+  const details = [
+    ...film.crew.map(c => [c.role, c.names.join(', ')] as const),
+    ['Release', formatDate(film.releaseDate)] as const,
+    ['Country', countryNames] as const,
+    ['Budget', formatMoney(film.budget)] as const,
+    ['Box office', formatMoney(film.revenue)] as const,
+  ].filter((row): row is readonly [string, string] => Boolean(row[1]))
 
   useEffect(() => {
     const controller = new AbortController()
@@ -234,34 +215,26 @@ export default function PosterInfo({ film }: { film: FilmInfo }) {
         </motion.div>
       </div>
 
-      <motion.dl
-        className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-[#12151C] rounded-2xl py-6 px-8"
-        style={{ border: `1px solid ${accent.rgba(0.1)}` }}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <Stat label="Year" value={year} />
-        <Stat label="Country" value={countryCodes} />
-        <Stat label="Budget" value={formatMoney(film.budget)} />
-        <Stat label="Box office" value={formatMoney(film.revenue)} />
-        <Stat label="Release" value={formatDate(film.releaseDate)} />
-      </motion.dl>
-
-      <motion.section
-        className="mt-4"
-        aria-labelledby="crew-heading"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-      >
-        <h2 id="crew-heading" className="text-xl font-medium text-white mb-4">Crew</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {film.crew.map(member => (
-            <CrewCard key={member.role} {...member} />
-          ))}
-        </div>
-      </motion.section>
+      {details.length > 0 && (
+        <motion.section
+          className="mt-4"
+          aria-labelledby="details-heading"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <h2 id="details-heading" className="text-xl font-medium text-white mb-2">Details</h2>
+          {/* A plain list, no cards: label on the left, people or facts on the right. */}
+          <dl className="grid md:grid-cols-2 md:gap-x-16">
+            {details.map(([label, value]) => (
+              <div key={label} className="flex gap-6 py-3 border-b border-white/[0.06]">
+                <dt className="w-32 flex-shrink-0 text-sm text-white/40">{label}</dt>
+                <dd className="text-sm text-white/85">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </motion.section>
+      )}
     </div>
   )
 }

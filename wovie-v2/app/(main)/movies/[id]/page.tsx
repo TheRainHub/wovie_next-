@@ -75,10 +75,11 @@ export default async function FilmPage({ params }: { params: Params }) {
     revenue: film.revenue,
     certification: pickCertification(film.release_dates),
     hasTrailer: Boolean(trailer),
+    // Roles TMDB has nobody for are left out rather than shown as a dash.
     crew: CREW_ROLES.map(([role, jobs]) => {
-      const member = film.credits?.crew?.find(c => jobs.includes(c.job))
-      return { role, name: member?.name ?? null, photoUrl: imageUrl(member?.profile_path, 'w185') }
-    }),
+      const names = [...new Set((film.credits?.crew ?? []).filter(c => jobs.includes(c.job)).map(c => c.name))]
+      return { role, names: names.slice(0, 3) }
+    }).filter(c => c.names.length > 0),
   }
 
   return (
