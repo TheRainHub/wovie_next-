@@ -113,8 +113,10 @@ export function movieFields(movie: TMDBMovie | TMDBMovieDetails) {
 /** Store a film from its TMDB details, with genres and top-billed cast. */
 export async function saveMovieDetails(details: TMDBMovieDetails) {
   const fields = { ...movieFields(details), runtime: details.runtime, trailerUrl: trailerWatchUrl(details.videos) }
-  // Shared rows (genres, actors) are locked in id order, so films saved in
-  // parallel can't deadlock on each other.
+  // Actors are locked in id order, so films saved in parallel can't deadlock
+  // on each other. Genres are only inserted when missing (every sync writes
+  // their names): DO NOTHING takes no row lock, so parallel saves don't queue
+  // behind each other on Drama until the transaction times out.
   const genres = [...details.genres].sort((a, b) => a.id - b.id)
   const cast = details.credits.cast
     .slice(0, 5)
@@ -122,9 +124,7 @@ export async function saveMovieDetails(details: TMDBMovieDetails) {
     .sort((a, b) => a.id - b.id)
 
   await prisma.$transaction([
-    ...genres.map(g =>
-      prisma.genre.upsert({ where: { id: g.id }, update: { name: g.name }, create: { id: g.id, name: g.name } }),
-    ),
+    prisma.genre.createMany({ data: genres.map(g => ({ id: g.id, name: g.name })), skipDuplicates: true }),
     ...cast.map(c =>
       prisma.actor.upsert({
         where: { id: c.id },
