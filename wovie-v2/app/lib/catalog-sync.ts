@@ -2,6 +2,7 @@ import { prisma } from './db'
 import { movieFields, saveMovieDetails } from './catalog'
 import { catalogueBaseline, weightedRating } from './ratings'
 import { getGenres, getMovieDetails, getPopularMovies, TMDBNotFoundError } from './tmdb'
+import type { TMDBMovie } from './tmdb-types'
 
 // The catalogue is a copy of TMDB's popular list, kept in Postgres so pages
 // don't depend on TMDB being up. A sync adds new films, refreshes the scores
@@ -58,6 +59,33 @@ export async function recomputeWeightedRatings() {
   return baseline
 }
 
+/**
+ * Write the list's data to films already stored, in one statement. The
+ * functions and the database sit in different regions, so a round trip per
+ * film adds up: 300 updates in one transaction outlast its 5 s limit.
+ */
+async function refreshFromList(films: TMDBMovie[]) {
+  if (films.length === 0) return
+  const rows = films.map(f => ({ id: f.id, ...movieFields(f) }))
+  await prisma.$executeRaw`
+    UPDATE "Movie" AS m SET
+      "title" = u.title, "description" = u.description, "posterUrl" = u.poster_url,
+      "backdropUrl" = u.backdrop_url, "releaseDate" = u.release_date, "rating" = u.rating,
+      "voteCount" = u.vote_count, "popularity" = u.popularity, "syncedAt" = now() AT TIME ZONE 'UTC'
+    FROM unnest(
+      ${rows.map(r => r.id)}::int[],
+      ${rows.map(r => r.title)}::text[],
+      ${rows.map(r => r.description)}::text[],
+      ${rows.map(r => r.posterUrl)}::text[],
+      ${rows.map(r => r.backdropUrl)}::text[],
+      ${rows.map(r => r.releaseDate?.toISOString() ?? null)}::timestamp(3)[],
+      ${rows.map(r => r.rating)}::float8[],
+      ${rows.map(r => r.voteCount)}::int[],
+      ${rows.map(r => r.popularity)}::float8[]
+    ) AS u(id, title, description, poster_url, backdrop_url, release_date, rating, vote_count, popularity)
+    WHERE m."id" = u.id`
+}
+
 async function runSync() {
   const { genres } = await getGenres()
   await prisma.$transaction(
@@ -77,7 +105,7 @@ async function runSync() {
 
   // Films already stored: the list entry carries fresh scores, no extra request.
   const refreshed = [...popular.values()].filter(m => stored.has(m.id))
-  await prisma.$transaction(refreshed.map(m => prisma.movie.update({ where: { id: m.id }, data: movieFields(m) })))
+  await refreshFromList(refreshed)
 
   // New films: one details request each, for runtime, trailer, genres and cast.
   const added: number[] = []
