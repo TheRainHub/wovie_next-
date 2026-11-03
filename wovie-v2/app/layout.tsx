@@ -16,17 +16,17 @@ const patuaOne = Patua_One({
 });
 
 export const metadata: Metadata = {
-  title: "Wovie",
-  description: "Wovie is a movie streaming platform",
+  title: {
+    default: "Wovie: find a film, keep a watchlist",
+    template: "%s · Wovie",
+  },
+  description:
+    "Browse popular films with TMDB ratings, rate what you have seen and keep your own lists.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${poppins.variable} ${patuaOne.variable}`}>
-      <head>
-        {/* Web Component: кастомный элемент рейтинга <wovie-rating> */}
-        <script src="/components/wovie-rating.js" defer></script>
-      </head>
       <body className="font-sans bg-background text-white">
         <Providers>{children}</Providers>
       </body>

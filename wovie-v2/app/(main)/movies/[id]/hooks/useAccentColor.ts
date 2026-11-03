@@ -96,7 +96,7 @@ export function useAccentColor(imageUrl: string | undefined) {
           b: boosted.b,
           isDark: brightness < 128,
         })
-      } catch (e) {
+      } catch {
         // Оставляем дефолтный цвет при ошибке
       }
     }

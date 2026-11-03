@@ -1,15 +1,22 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { loginHref } from '@/app/lib/login'
 
 interface Props {
   movieId: number
   initialIsFavorite: boolean
   className?: string
+  iconClassName?: string
 }
 
-export default function FavoriteButton({ movieId, initialIsFavorite, className = "" }: Props) {
+export default function FavoriteButton({ movieId, initialIsFavorite, className = '', iconClassName = 'w-4 h-4' }: Props) {
+  const { status } = useSession()
+  const router = useRouter()
+  const pathname = usePathname()
   const [isFavorite, setIsFavorite] = useState(initialIsFavorite)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -18,12 +25,16 @@ export default function FavoriteButton({ movieId, initialIsFavorite, className =
   }, [initialIsFavorite])
 
   const toggleFavorite = async (e: React.MouseEvent) => {
-    e.preventDefault() // prevent navigating to movie page if wrapped in Link
+    e.preventDefault() // the button often sits inside a card link
     e.stopPropagation()
 
+    if (status !== 'authenticated') {
+      router.push(loginHref(pathname))
+      return
+    }
     if (isLoading) return
 
-    // Optimistic UI update
+    // Optimistic: flip now, settle on what the server says.
     const previousState = isFavorite
     setIsFavorite(!previousState)
     setIsLoading(true)
@@ -32,31 +43,30 @@ export default function FavoriteButton({ movieId, initialIsFavorite, className =
       const res = await fetch('/api/favorites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ movieId })
+        body: JSON.stringify({ movieId, favorite: !previousState }),
       })
-
-      if (!res.ok) {
-        // If unauthorized or other error, revert
-        throw new Error('Failed to toggle favorite')
-      }
-      
+      if (!res.ok) throw new Error(`Favourite toggle failed: ${res.status}`)
       const data = await res.json()
       setIsFavorite(data.isFavorite)
     } catch (error) {
       console.error(error)
-      // Revert optimistic update on error
       setIsFavorite(previousState)
     } finally {
       setIsLoading(false)
     }
   }
 
+  const label = isFavorite ? 'Remove from favourites' : 'Add to favourites'
+
   return (
     <button
+      type="button"
       onClick={toggleFavorite}
       disabled={isLoading}
-      className={className || "p-2 rounded-full backdrop-blur-sm bg-black/30 hover:bg-black/50 transition-colors"}
-      title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      aria-pressed={isFavorite}
+      aria-label={label}
+      title={label}
+      className={className || 'p-2 rounded-full backdrop-blur-sm bg-black/30 hover:bg-black/50 transition-colors'}
     >
       <motion.div
         whileTap={{ scale: 0.8 }}
@@ -64,7 +74,7 @@ export default function FavoriteButton({ movieId, initialIsFavorite, className =
         transition={{ duration: 0.3 }}
       >
         <Heart
-          className={`w-4 h-4 transition-colors duration-300 ${
+          className={`${iconClassName} transition-colors duration-300 ${
             isFavorite ? 'fill-red-500 text-red-500' : 'text-white/80 hover:text-white'
           }`}
         />

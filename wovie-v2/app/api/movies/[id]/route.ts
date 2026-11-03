@@ -1,34 +1,23 @@
 import { NextResponse } from 'next/server'
+import { jsonError, parseMovieId } from '@/app/lib/api'
+import { ensureMovie, movieCardSelect } from '@/app/lib/catalog'
 import { prisma } from '@/app/lib/db'
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// One film in card shape, for the "Last viewed" banner. Films opened from
+// Trending or Similar may not be stored yet, so they are fetched from TMDB.
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const movieId = parseMovieId((await params).id)
+  if (!movieId) return jsonError(400, 'Invalid film id')
+
   try {
-    const { id } = await params
-    const movieId = parseInt(id)
-
-    if (isNaN(movieId)) {
-      return NextResponse.json({ error: 'Invalid movie ID' }, { status: 400 })
-    }
-
+    if (!(await ensureMovie(movieId))) return jsonError(404, 'Film not found')
     const movie = await prisma.movie.findUnique({
       where: { id: movieId },
-      include: {
-        genres: {
-          include: { genre: true }
-        }
-      }
+      select: { ...movieCardSelect, trailerUrl: true },
     })
-
-    if (!movie) {
-      return NextResponse.json({ error: 'Movie not found' }, { status: 404 })
-    }
-
-    return NextResponse.json(movie)
+    return movie ? NextResponse.json(movie) : jsonError(404, 'Film not found')
   } catch (error) {
-    console.error('Error fetching movie:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error fetching film:', error)
+    return jsonError(500, 'Could not load the film')
   }
 }

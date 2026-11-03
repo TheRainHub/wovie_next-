@@ -21,15 +21,13 @@ export default function RatingChart({ score, votes, accent }: Props) {
   const arcRef   = useRef<SVGCircleElement>(null)
   const textRef  = useRef<SVGTextElement>(null)
   const [hovered, setHovered] = useState(false)
-  const [animated, setAnimated] = useState(false)
 
   const SIZE   = 120
   const STROKE = 8
-  const R      = (SIZE - STROKE) / 2        // радиус
+  const HOVER_STROKE = STROKE + 3
+  const R      = (SIZE - HOVER_STROKE) / 2  // радиус: место и под утолщённую дугу при наведении
   const CIRC   = 2 * Math.PI * R            // длина окружности
   const pct    = Math.min(score / 10, 1)
-  const dash   = CIRC * pct                 // заполненная часть дуги
-  const gap    = CIRC - dash                // пустая часть
 
   // Анимируем дугу через JS setAttribute при монтировании
   useEffect(() => {
@@ -43,11 +41,13 @@ export default function RatingChart({ score, votes, accent }: Props) {
 
     // Плавная анимация через requestAnimationFrame
     let start: number | null = null
-    const duration = 900 // ms
+    let frame = 0
+    // Without motion: draw the final state straight away.
+    const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900 // ms
 
     const animate = (ts: number) => {
       if (!start) start = ts
-      const progress = Math.min((ts - start) / duration, 1)
+      const progress = duration ? Math.min((ts - start) / duration, 1) : 1
       // easeOutCubic
       const eased = 1 - Math.pow(1 - progress, 3)
       const currentDash = CIRC * pct * eased
@@ -56,16 +56,15 @@ export default function RatingChart({ score, votes, accent }: Props) {
       arc.setAttribute('stroke-dasharray', `${currentDash} ${CIRC - currentDash}`)
       text.setAttribute('opacity', String(eased))
 
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      } else {
-        setAnimated(true)
-      }
+      if (progress < 1) frame = requestAnimationFrame(animate)
     }
 
     // Небольшая задержка для появления
-    const timer = setTimeout(() => requestAnimationFrame(animate), 300)
-    return () => clearTimeout(timer)
+    const timer = setTimeout(() => { frame = requestAnimationFrame(animate) }, duration ? 300 : 0)
+    return () => {
+      clearTimeout(timer)
+      cancelAnimationFrame(frame)
+    }
   }, [score, accent, CIRC, pct])
 
   // JS-события на SVG-элементах через addEventListener
@@ -77,7 +76,7 @@ export default function RatingChart({ score, votes, accent }: Props) {
     const onEnter = () => {
       setHovered(true)
       // Меняем атрибут через setAttribute
-      arc.setAttribute('stroke-width', String(STROKE + 3))
+      arc.setAttribute('stroke-width', String(HOVER_STROKE))
     }
 
     const onLeave = () => {
@@ -93,7 +92,7 @@ export default function RatingChart({ score, votes, accent }: Props) {
       svg.removeEventListener('mouseenter', onEnter)
       svg.removeEventListener('mouseleave', onLeave)
     }
-  }, [STROKE])
+  }, [STROKE, HOVER_STROKE])
 
   const formatVotes = (n: number) => {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -102,16 +101,17 @@ export default function RatingChart({ score, votes, accent }: Props) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-1 select-none cursor-default">
-      {/* SVG-элемент — круговой индикатор */}
+    <div className="flex flex-col items-center gap-2 select-none cursor-default">
+      {/* SVG-элемент — круговой индикатор. Hover thickens the arc and adds a glow in place,
+          without scaling, so it never runs into the vote count below. */}
       <svg
         ref={svgRef}
         width={SIZE}
         height={SIZE}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
+        overflow="visible"
         role="img"
-        aria-label={`Rating ${score.toFixed(1)} out of 10`}
-        style={{ transition: 'transform 0.3s ease', transform: hovered ? 'scale(1.08)' : 'scale(1)' }}
+        aria-label={`TMDB rating ${score.toFixed(1)} out of 10`}
       >
         {/* Фоновое кольцо */}
         <circle
