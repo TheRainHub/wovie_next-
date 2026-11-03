@@ -26,7 +26,9 @@ async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<v
 /**
  * Take the sync slot if no run is in progress and the last one is not recent.
  * One SQL statement, so two server instances can't both win. Timestamps are
- * UTC, like the ones Prisma writes.
+ * UTC, like the ones Prisma writes. `finishedAt` stays NULL after a run that
+ * failed or was cut off; without the IS NOT NULL the freshness test turns
+ * NULL, and so does the whole WHERE, which would hold the slot forever.
  */
 async function claimSync({ force = false } = {}) {
   const rows = await prisma.$queryRaw<{ id: string }[]>`
@@ -35,7 +37,8 @@ async function claimSync({ force = false } = {}) {
     WHERE NOT (
       ("CatalogSync"."startedAt" > now() AT TIME ZONE 'UTC' - make_interval(secs => ${LOCK_FOR_SECONDS})
         AND ("CatalogSync"."finishedAt" IS NULL OR "CatalogSync"."finishedAt" < "CatalogSync"."startedAt"))
-      OR (${!force} AND "CatalogSync"."finishedAt" >= "CatalogSync"."startedAt"
+      OR (${!force} AND "CatalogSync"."finishedAt" IS NOT NULL
+        AND "CatalogSync"."finishedAt" >= "CatalogSync"."startedAt"
         AND "CatalogSync"."finishedAt" > now() AT TIME ZONE 'UTC' - make_interval(secs => ${FRESH_FOR_SECONDS}))
     )
     RETURNING "id"`
