@@ -40,9 +40,15 @@ model Movie {
   backdropUrl String?
   trailerUrl  String?
   releaseDate DateTime?
-  rating      Float    @default(0)
+  rating      Float    @default(0) // TMDB vote_average, 0–10
+  voteCount   Int      @default(0) // TMDB vote_count
+  popularity  Float    @default(0) // TMDB popularity
+  /// Bayesian average of rating and voteCount against the whole catalogue,
+  /// recomputed after every sync (app/lib/ratings.ts). Used for "Top rated".
+  weightedRating Float @default(0)
   runtime     Int?
   createdAt   DateTime @default(now())
+  syncedAt    DateTime @default(now())
 
   genres    MovieGenre[]
   cast      MovieActor[]
@@ -50,6 +56,10 @@ model Movie {
   reviews   Review[]
   watchlistItems WatchlistItem[]
   watchHistory WatchHistory[]
+
+  @@index([popularity])
+  @@index([weightedRating])
+  @@index([releaseDate])
 }
 
 model Genre {
@@ -102,6 +112,8 @@ model Favorite {
   @@id([userId, movieId])
 }
 
+// A user's own score for a film. The film page shows the average of these as
+// the Wovie rating.
 model Review {
   id        String   @id @default(cuid())
   rating    Int      // 1-10
@@ -139,6 +151,10 @@ model WatchlistItem {
   @@id([watchlistId, movieId])
 }
 
+/// Unused: Wovie has no player, so nothing reads or writes this table any
+/// more. It stays until the release that stops reading it is live, then a
+/// follow-up migration drops it (dropping it now would break the profile page
+/// of the version currently in production).
 model WatchHistory {
   id             String   @id @default(cuid())
   watchedSeconds Int      @default(0)
@@ -153,3 +169,14 @@ model WatchHistory {
   @@unique([userId, movieId])
 }
 
+// ========================
+// Catalogue sync bookkeeping
+// ========================
+
+// One row ("catalog"). Lets every server instance agree on whether a sync is
+// running or recent, so TMDB is not hit by every visitor.
+model CatalogSync {
+  id         String    @id
+  startedAt  DateTime?
+  finishedAt DateTime?
+}

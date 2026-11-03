@@ -5,17 +5,21 @@ import { prisma } from "@/app/lib/db";
 
 const registerSchema = z.object({
   username: z.string()
+    .trim()
     .min(3, "Username must be at least 3 characters")
     .max(20, "Username must be at most 20 characters"),
   email: z.string()
+    .trim()
+    .toLowerCase()
     .email("Invalid email address"),
   password: z.string()
-    .min(6, "Password must be at least 6 characters"),
+    .min(8, "Password must be at least 8 characters")
+    .max(72, "Password must be at most 72 characters"), // bcrypt ignores anything longer
 });
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
 
     const result = registerSchema.safeParse(body);
     if (!result.success) {
@@ -59,6 +63,13 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
+    // Unique constraint hit despite the check above (two sign-ups at once).
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+      return NextResponse.json(
+        { error: "Email or username already taken" },
+        { status: 409 }
+      );
+    }
     console.error("Registration error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

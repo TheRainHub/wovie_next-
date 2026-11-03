@@ -1,64 +1,23 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/app/lib/db";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/lib/auth";
+import { NextResponse } from 'next/server'
+import { currentUserId } from '@/app/lib/api'
+import { favoriteIds, listMovies } from '@/app/lib/catalog'
+import { parseCatalogueQuery } from '@/app/lib/catalog-query'
 
+// Later pages of the catalogue grid (the first page is rendered on the server).
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.id;
-
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
-    const genreId = searchParams.get("genre");
-    const sort = searchParams.get("sort") || "rating";
-
-    const skip = (page - 1) * limit;
-
-    const whereClause: any = {};
-    if (genreId) {
-      whereClause.genres = {
-        some: { genreId: parseInt(genreId) }
-      };
-    }
-
-    const orderBy: any =
-      sort === "date" ? { releaseDate: "desc" } :
-      sort === "title" ? { title: "asc" } :
-      { rating: "desc" };
-
-    const [moviesData, total] = await Promise.all([
-      prisma.movie.findMany({
-        where: whereClause,
-        skip,
-        take: limit,
-        orderBy,
-        include: {
-          genres: { include: { genre: true } },
-          ...(userId ? { favorites: { where: { userId } } } : {})
-        }
-      }),
-      prisma.movie.count({ where: whereClause })
-    ]);
-
-    const movies = moviesData.map((m: any) => {
-      const { favorites, ...rest } = m;
-      return {
-        ...rest,
-        isFavorite: favorites ? favorites.length > 0 : false
-      };
-    });
+    const query = parseCatalogueQuery(new URL(request.url).searchParams)
+    const [{ movies, total, hasMore }, userId] = await Promise.all([listMovies(query), currentUserId()])
+    const favorites = await favoriteIds(userId, movies.map(m => m.id))
 
     return NextResponse.json({
-      movies,
+      movies: movies.map(m => ({ ...m, isFavorite: favorites.has(m.id) })),
       total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      hasMore: skip + movies.length < total
-    });
+      page: query.page,
+      hasMore,
+    })
   } catch (error) {
-    console.error("Error fetching movies:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error('Error listing movies:', error)
+    return NextResponse.json({ error: 'Could not load films' }, { status: 500 })
   }
 }

@@ -1,38 +1,38 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useSyncExternalStore } from 'react'
 import { WifiOff, Wifi } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
+function subscribe(onChange: () => void) {
+  window.addEventListener('online', onChange)
+  window.addEventListener('offline', onChange)
+  return () => {
+    window.removeEventListener('online', onChange)
+    window.removeEventListener('offline', onChange)
+  }
+}
+
 /**
- * OfflineBanner — реагирует на состояние интернет-соединения.
- * Использует Advanced JS API: navigator.onLine + события online/offline.
- * Показывает баннер при потере соединения и кратко при восстановлении.
+ * Tells the visitor when the connection drops (navigator.onLine and the
+ * online/offline events), and briefly when it comes back.
  */
 export default function OfflineBanner() {
-  const [isOnline, setIsOnline] = useState(true)
+  const isOnline = useSyncExternalStore(subscribe, () => navigator.onLine, () => true)
   const [showRestored, setShowRestored] = useState(false)
 
   useEffect(() => {
-    // Читаем текущее состояние при монтировании
-    setIsOnline(navigator.onLine)
-
+    let timer: ReturnType<typeof setTimeout>
     const handleOnline = () => {
-      setIsOnline(true)
-      // Показываем "восстановлено" на 3 секунды
       setShowRestored(true)
-      setTimeout(() => setShowRestored(false), 3000)
+      timer = setTimeout(() => setShowRestored(false), 3000)
     }
-
-    const handleOffline = () => {
-      setIsOnline(false)
-      setShowRestored(false)
-    }
+    const handleOffline = () => setShowRestored(false)
 
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
-
     return () => {
+      clearTimeout(timer)
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }

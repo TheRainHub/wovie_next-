@@ -25,11 +25,12 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Email and password are required");
         }
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials.email.trim().toLowerCase() },
         });
 
+        // The same answer for both cases, so the form doesn't reveal who has an account.
         if (!user) {
-          throw new Error("No user found with this email");
+          throw new Error("Invalid email or password");
         }
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
@@ -37,7 +38,7 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isPasswordValid) {
-          throw new Error("Invalid password");
+          throw new Error("Invalid email or password");
         }
         return {
           id: user.id,
@@ -50,7 +51,7 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    // Добавляем user.id в JWT токен
+    // Put the user id into the JWT…
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
@@ -58,7 +59,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
 
-    // Добавляем user.id в session (чтобы на клиенте был доступ)
+    // …and from there into the session, so pages and routes can read it.
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;

@@ -1,223 +1,93 @@
-# Wovie 🎬
+# Wovie
 
-> **Semestrální práce — Tvorba klientských aplikací v JavaScriptu (KAJ)**
-> Autor: Mykhailo Plokhin | [GitHub původní verze (ZWA, 1. ročník)](https://github.com/TheRainHub/Wovie) Původní verze tohoto github repo pro historie commitu https://github.com/TheRainHub/wovie_next
->
-> 🔗 **Původní Wovie (ZWA, čisté HTML/CSS/JS):** [zwa.toad.cz/~plokhmyk/Wovie/index.php](https://zwa.toad.cz/~plokhmyk/Wovie/index.php)
-> 🚀 **Tato verze (Next.js, live demo):** [wovienext.vercel.app](https://wovienext.vercel.app)
+Find a film, keep a watchlist. Wovie is a film catalogue built on [TMDB](https://www.themoviedb.org/): browse what is
+popular, see how it is rated, rate it yourself and keep favourites and lists.
 
----
+Live demo: [wovienext.vercel.app](https://wovienext.vercel.app). The original KAJ semester write-up is in
+[docs/kaj.md](docs/kaj.md).
 
-## Motivace
+## What it does
 
-Tento projekt má svůj příběh.
+- **Catalogue**: the ~300 most popular films on TMDB, stored in Postgres. Sort by popularity, top rated, newest or
+  title, filter by genre, search by title. Every filter is part of the URL.
+- **Trending**: today's trending films on TMDB, on the home page and at the top of the catalogue.
+- **Film pages**: overview, age rating, runtime, cast and crew, trailer and similar films, straight from TMDB.
+- **Ratings**: no score in the app is typed by hand. See [How scores are worked out](#how-scores-are-worked-out).
+- **Accounts**: email and password. Signed-in people can rate films 1–10, keep favourites and make lists (rename,
+  delete, take films off).
 
-Na prvním ročníku jsem v předmětu **ZWA** napsal první verzi Wovie — filmový katalog v čistém HTML, CSS a JavaScriptu, bez jediné knihovny třetích stran. Tehdy to bylo pravidlo kurzu: žádné frameworky, žádné npm balíčky, vše od nuly. Bylo to náročné, ale naučilo mě to skutečně rozumět tomu, co se pod kapotou děje.
+Wovie does not stream or sell films. The play buttons start the trailer, which is hosted on YouTube.
 
-Po tom kurzu jsem si položil otázku: *jak by stejný projekt vypadal s moderním přístupem — s Reactem, TypeScriptem, hotovými nástroji a bez umělých omezení?*
+## How scores are worked out
 
-Tak vznikla tato semestrální práce. Není dokonalá — daleko od ideálu, který mám v hlavě — ale vložil jsem do ní svůj čas, svůj nápad a snahu udělat něco, co je nejen funkční, ale subjektivně i hezké.
-
----
-
-## Cíl projektu
-
-Moderní filmový portál s kinematografickým UI, kde uživatel může:
-
-- Procházet katalog filmů napojený na TMDB API
-- Filtrovat podle žánru (s History API — tlačítka zpět/vpřed fungují)
-- Vyhledávat filmy podle názvu
-- Na stránce filmu sledovat trailer, automatické video pozadí, obsazení, podobné filmy
-- Přidávat filmy do oblíbených a vlastních watchlistů
-- Sledovat historii přehrávání v profilu
-- Registrovat se a přihlásit přes e-mail nebo OAuth (Google, GitHub)
-
----
-
-## Technologický stack
-
-| Vrstva | Technologie |
+| Score | Where it comes from |
 |---|---|
-| Frontend | Next.js 15 (App Router), React 19, TypeScript |
-| Styly | Tailwind CSS v4, CSS proměnné, CSS Nesting |
-| Animace | Framer Motion |
-| Autentizace | NextAuth.js (credentials + OAuth) |
-| Databáze | PostgreSQL + Prisma ORM |
-| Filmová data | TMDB API |
+| TMDB score and vote count | TMDB's `vote_average` and `vote_count`, refreshed by the catalogue sync. |
+| Top rated order | A Bayesian (IMDb-style) average: `v/(v+m)·R + m/(v+m)·C`, where `R` and `v` are the film's score and votes, `C` is the mean score of the catalogue and `m` its median vote count. Recomputed after every sync, so a 9.2 from a dozen votes doesn't outrank an 8.5 from thirty thousand. |
+| Wovie rating | The average of what signed-in people on Wovie gave the film, with how many people rated it. Shown only when someone has. |
+| Age rating | TMDB's certification for the US, then the UK, then Czechia. Not shown when TMDB has none. |
+| "New" badge | Released in the last 90 days. |
 
----
+The maths lives in `app/lib/ratings.ts` and `app/lib/format.ts` and is unit-tested.
 
-## Spuštění projektu
+## How the catalogue stays fresh
+
+`app/lib/catalog-sync.ts` copies TMDB's popular list into Postgres: new films get one details request (runtime,
+trailer, genres, cast), films already stored get their scores from the list itself, and 40 stored films that have
+dropped out of the list are refreshed per run, oldest first. It runs:
+
+- in the background after `/movies` renders, at most once every 6 hours (a row in `CatalogSync` acts as a lock shared
+  by all server instances, so visitors never wait for it and TMDB is not called on every visit);
+- on demand with `npm run db:sync`.
+
+Film pages, Top rated, New releases and the home page are cached for an hour. What depends on the visitor (their
+rating, favourites, lists) is fetched separately, so the cache is the same for everyone.
+
+## Running it locally
+
+Requirements: Node 20+, PostgreSQL, a TMDB API key.
 
 ```bash
-# 1. Instalace závislostí
 npm install
-
-# 2. Nastavit proměnné prostředí (.env)
-DATABASE_URL="postgresql://..."
-NEXTAUTH_SECRET="your-secret"
-NEXTAUTH_URL="http://localhost:3000"
-TMDB_API_KEY="your-tmdb-key"
-GOOGLE_CLIENT_ID="..."
-GOOGLE_CLIENT_SECRET="..."
-
-# 3. Migrace databáze
-npx prisma migrate dev
-npx prisma db seed
-
-# 4. Spuštění dev serveru
+cp .env.example .env        # then fill in DATABASE_URL, TMDB_API_KEY, NEXTAUTH_SECRET
+npm run db:migrate          # apply migrations
+npm run db:sync             # fill the catalogue from TMDB (about a minute)
 npm run dev
 ```
 
-Otevřít [http://localhost:3000](http://localhost:3000)
+## Scripts
 
----
+| Command | What it does |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run build` | Production build (reads the database for the cached pages) |
+| `npm run check` | Type check, lint and unit tests |
+| `npm test` | Unit tests (Vitest) |
+| `npm run db:migrate` | Apply pending migrations (`prisma migrate deploy`) |
+| `npm run db:sync` | Sync the catalogue from TMDB now |
 
-## Struktura projektu
+## Stack
+
+Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Framer Motion, NextAuth (credentials, JWT sessions),
+Prisma 7 with PostgreSQL (Neon), TMDB API, Vercel.
 
 ```
 app/
-├── (auth)/components/        # LoginForm, RegisterForm, AvatarUpload, AuthInput
-├── (main)/
-│   ├── movies/               # Katalog + stránka filmu
-│   │   └── [id]/components/  # CinematicHero, TrailerPlayer, RatingChart, PosterInfo...
-│   ├── profile/              # Profil uživatele
-│   ├── top-rated/
-│   └── new-releases/
-├── api/                      # API routes (auth, movies, favorites, watchlists)
-├── components/               # Header, FavoriteButton, OfflineBanner, WatchlistDropdown
-└── lib/                      # auth.ts, db.ts, tmdb.ts, MovieModel.ts (OOP)
-public/
-└── components/
-    └── wovie-rating.js       # Web Component
-prisma/
-└── schema.prisma
+├── (main)/          catalogue, film pages, top rated, new releases, profile, lists
+├── (auth)/          login and registration forms (shown on the home page)
+├── api/             route handlers: catalogue pages, ratings, favourites, lists, sign-up
+├── components/      header, footer, poster card, favourite and list controls
+└── lib/             TMDB client, catalogue queries and sync, rating maths, auth
+prisma/              schema, migrations, seed (= catalogue sync)
+proxy.ts             sends signed-out visitors from /profile and /lists to the login form
 ```
 
----
+## Not done yet
 
-## Splnění hodnotících kritérií
+- Password reset and email verification (needs an email provider).
+- Sign-in with Google or another provider.
+- Avatars (needs file storage).
+- Sharing lists publicly (`Watchlist.isPublic` exists but nothing uses it).
+- End-to-end tests.
 
-### 📄 Dokumentace
-Cíl projektu, popis funkcionality a technický postup jsou popsány v tomto souboru.
-Komentáře v kódu jsou průběžně v klíčových souborech.
-
----
-
-### 🌐 HTML5
-
-**Validita** — Next.js generuje validní HTML5 s `<!DOCTYPE html>` a `<html lang="en">`.
-
-**Sémantické značky** — použity napříč aplikací:
-- [`app/(main)/layout.tsx`](app/(main)/layout.tsx) — `<main>`
-- [`app/(main)/movies/page.tsx`](app/(main)/movies/page.tsx) — `<main>`, `<section aria-label="...">`, `<article>`
-- [`app/(main)/movies/components/HeroBanner.tsx`](app/(main)/movies/components/HeroBanner.tsx) — `<article>`
-- [`app/components/Header.tsx`](app/components/Header.tsx) — `<header>`, `<nav>`
-
-**Grafika — SVG:**
-- [`app/(auth)/components/AuthInput.tsx`](app/(auth)/components/AuthInput.tsx) — vlastní animovaný SVG lightsaber toggle (hilt, blade, glow filter, `<defs>`, `<feMerge>`)
-- [`app/(main)/movies/[id]/components/RatingChart.tsx`](app/(main)/movies/[id]/components/RatingChart.tsx) — kruhový SVG indikátor hodnocení, manipulovaný přes JS
-
-**Grafika — Canvas:**
-- [`app/(main)/movies/[id]/hooks/useAccentColor.ts`](app/(main)/movies/[id]/hooks/useAccentColor.ts) — `document.createElement('canvas')` → `getContext('2d')` → `drawImage()` → `getImageData()` → ruční výpočet dominantní barvy posteru
-
-**Média — Audio/Video:**
-- [`app/(main)/movies/[id]/components/TrailerPlayer.tsx`](app/(main)/movies/[id]/components/TrailerPlayer.tsx) — YouTube embed (záložka Trailer) + nativní `<video>` s vlastními ovládacími prvky (záložka Demo Clip)
-
-**Formulářové prvky:**
-- [`app/(auth)/components/AuthInput.tsx`](app/(auth)/components/AuthInput.tsx) — typy (`email`, `password`, `text`, `checkbox`), `placeholder`, `autoFocus`, `required`, `minLength`
-- [`app/(auth)/components/RegisterForm.tsx`](app/(auth)/components/RegisterForm.tsx) — validace v reálném čase (useMemo), indikátor síly hesla
-- [`app/(auth)/components/LoginForm.tsx`](app/(auth)/components/LoginForm.tsx)
-
----
-
-### 🎨 CSS
-
-**Pokročilé selektory** — [`app/globals.css`](app/globals.css) + inline Tailwind:
-- `::-webkit-scrollbar-thumb:hover` (pseudo-element + pseudo-třída)
-- `has-[[data-saber-ignited=true]]` — CSS `:has()` s atributovým selektorem
-- `data-[active]:after:scale-x-100` — Tailwind atributový selektor
-- `&:disabled`, `&:active`, `&:hover` v nested CSS
-
-**CSS3 transformace 2D/3D** — [`app/globals.css`](app/globals.css):
-```css
-.card-3d:hover {
-  transform: perspective(800px) rotateY(6deg) rotateX(-3deg) scale(1.04);
-}
-```
-Použito na: [`app/(main)/movies/components/RankedCard.tsx`](app/(main)/movies/components/RankedCard.tsx)
-
-**CSS3 transitions/animations** — [`app/globals.css`](app/globals.css):
-- `transition: all 0.3s ease` na `.btn-gradient`
-- `animate-spin`, `animate-pulse` (Tailwind keyframes)
-- Framer Motion animace v celé aplikaci
-
-**Media queries** — Tailwind breakpointy `sm:`, `md:`, `lg:`, `xl:` ve všech komponentách.
-
-**Nested CSS** — [`app/globals.css`](app/globals.css):
-```css
-.auth-scroll {
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { &:hover { background: ... } }
-}
-.btn-gradient {
-  &:hover { ... }
-  &:disabled { ... }
-}
-```
-
----
-
-### ⚙️ JavaScript
-
-**OOP — prototypová dědičnost** — [`app/lib/MovieModel.ts`](app/lib/MovieModel.ts):
-```js
-function Movie(data) {
-  MediaItem.call(this, data)        // volání rodiče
-  this.runtime = data.runtime
-}
-Movie.prototype = Object.create(MediaItem.prototype)
-Movie.prototype.constructor = Movie
-Movie.prototype.getRuntime = function() { ... }
-
-const Wovie = { createMovie: (data) => new Movie(data) }
-```
-Použito v: [`RankedCard.tsx`](app/(main)/movies/components/RankedCard.tsx), [`PosterInfo.tsx`](app/(main)/movies/[id]/components/PosterInfo.tsx)
-
-**Použití JS frameworku** — React 19, Next.js 15, Framer Motion, NextAuth.js.
-
-**Pokročilá JS API** — [`app/(auth)/components/AvatarUpload.tsx`](app/(auth)/components/AvatarUpload.tsx):
-- **File API** — `FileReader.readAsDataURL()` pro náhled avataru
-- **Drag & Drop API** — `dragover`, `dragleave`, `drop` události
-
-[`app/(main)/movies/page.tsx`](app/(main)/movies/page.tsx):
-- **LocalStorage** — ukládání posledního navštíveného filmu
-- **IntersectionObserver** — nekonečné scrollování katalogu
-
-**Funkční historie (History API)** — [`app/(main)/movies/page.tsx`](app/(main)/movies/page.tsx):
-- `window.history.pushState({ genre }, '', url)` při změně žánru
-- `window.addEventListener('popstate', ...)` pro tlačítka zpět/vpřed
-
-**Ovládání médií (Media API)** — [`app/(main)/movies/[id]/components/TrailerPlayer.tsx`](app/(main)/movies/[id]/components/TrailerPlayer.tsx):
-- `video.play()`, `video.pause()`, `video.muted`, `video.currentTime`
-- `video.requestFullscreen()`
-- Události: `timeupdate`, `loadedmetadata`, `play`, `pause`, `ended`
-
-**Offline aplikace** — [`app/components/OfflineBanner.tsx`](app/components/OfflineBanner.tsx):
-- `navigator.onLine` — čtení stavu při načtení
-- `window.addEventListener('online' / 'offline', ...)` — reakce na změnu připojení
-
-**JS práce s SVG** — [`app/(main)/movies/[id]/components/RatingChart.tsx`](app/(main)/movies/[id]/components/RatingChart.tsx):
-- `arc.setAttribute('stroke-dasharray', ...)` — animace oblouku přes `requestAnimationFrame`
-- `svg.addEventListener('mouseenter', ...)` — události přímo na SVG elementu
-- Dynamická změna atributů: `stroke-width`, `opacity` přes `setAttribute`
-
-**Webová komponenta** — [`public/components/wovie-rating.js`](public/components/wovie-rating.js):
-```js
-class WovieRating extends HTMLElement {
-  constructor() { super(); this.attachShadow({ mode: 'open' }) }
-  connectedCallback() { this.render() }
-}
-customElements.define('wovie-rating', WovieRating)
-```
-Použito v: [`PosterInfo.tsx`](app/(main)/movies/[id]/components/PosterInfo.tsx) jako `<wovie-rating value="8.4" max="10" />`
+This product uses the TMDB API but is not endorsed or certified by TMDB.

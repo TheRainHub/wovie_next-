@@ -1,55 +1,35 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/app/lib/db";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/lib/auth";
+import { NextResponse } from 'next/server'
+import { currentUserId, jsonError, parseMovieId, readJson } from '@/app/lib/api'
+import { ensureMovie } from '@/app/lib/catalog'
+import { prisma } from '@/app/lib/db'
 
+/**
+ * Set whether a film is a favourite: `{ movieId, favorite: true | false }`.
+ * Saying what you want (rather than "toggle") keeps a double click or a stale
+ * page from flipping it the wrong way.
+ */
 export async function POST(request: Request) {
+  const userId = await currentUserId()
+  if (!userId) return jsonError(401, 'Sign in to keep favourites')
+  const body = await readJson(request)
+  const movieId = parseMovieId(body?.movieId)
+  if (!movieId) return jsonError(400, 'Invalid film id')
+  if (typeof body?.favorite !== 'boolean') return jsonError(400, '`favorite` must be true or false')
+
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!body.favorite) {
+      await prisma.favorite.deleteMany({ where: { userId, movieId } })
+      return NextResponse.json({ isFavorite: false })
     }
-
-    const { movieId } = await request.json();
-    if (!movieId) {
-      return NextResponse.json({ error: "Movie ID is required" }, { status: 400 });
-    }
-
-    const userId = session.user.id;
-
-    // Check if it's already favorited
-    const existingFavorite = await prisma.favorite.findUnique({
-      where: {
-        userId_movieId: {
-          userId,
-          movieId,
-        },
-      },
-    });
-
-    if (existingFavorite) {
-      // Remove from favorites
-      await prisma.favorite.delete({
-        where: {
-          userId_movieId: {
-            userId,
-            movieId,
-          },
-        },
-      });
-      return NextResponse.json({ isFavorite: false });
-    } else {
-      // Add to favorites
-      await prisma.favorite.create({
-        data: {
-          userId,
-          movieId,
-        },
-      });
-      return NextResponse.json({ isFavorite: true });
-    }
+    if (!(await ensureMovie(movieId))) return jsonError(404, 'Film not found')
+    await prisma.favorite.upsert({
+      where: { userId_movieId: { userId, movieId } },
+      update: {},
+      create: { userId, movieId },
+    })
+    return NextResponse.json({ isFavorite: true })
   } catch (error) {
-    console.error("Error toggling favorite:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error('Error updating favourites:', error)
+    return jsonError(500, 'Could not update favourites')
   }
 }
