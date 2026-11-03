@@ -69,7 +69,8 @@ npm run dev
 ## Stack
 
 Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Framer Motion, NextAuth (credentials, JWT sessions),
-Prisma 7 with PostgreSQL (Neon), TMDB API, Vercel.
+Prisma 7 with PostgreSQL (Neon), TMDB API, Vercel. The functions run in `fra1` (`vercel.json`), next to the Neon
+database in Frankfurt: every page makes several queries, and from Vercel's default `iad1` each one crossed the Atlantic.
 
 ```
 app/

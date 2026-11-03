@@ -63,9 +63,9 @@ export async function recomputeWeightedRatings() {
 }
 
 /**
- * Write the list's data to films already stored, in one statement. The
- * functions and the database sit in different regions, so a round trip per
- * film adds up: 300 updates in one transaction outlast its 5 s limit.
+ * Write the list's data to films already stored, in one statement. A round
+ * trip per film adds up: when the functions ran in iad1, an ocean away from
+ * the database, 300 updates in one transaction outlasted its 5 s limit.
  */
 async function refreshFromList(films: TMDBMovie[]) {
   if (films.length === 0) return
